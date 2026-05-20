@@ -1,7 +1,5 @@
 name: Build Pansou
 on: [push]
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -9,13 +7,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.20' # 建议用1.20，因为你之前报过sonic库的错
           cache: false
       - name: Build
         run: |
+          cd pansou   # <--- 加上这一行，进入存放 go.mod 的目录
           go mod tidy
           GOOS=linux GOARCH=amd64 go build -v -o pansou main.go
       - uses: actions/upload-artifact@v4
         with:
           name: pansou-linux
-          path: pansou
+          path: pansou/pansou # <--- 注意路径也要改为 pansou/pansou
