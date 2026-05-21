@@ -3,7 +3,7 @@
 # VITE_API_BASE_URL=http://localhost:8888
 
 # 生产环境示例
-VITE_API_BASE_URL=https://yun.tag.cn.mt
+VITE_API_BASE_URL=http://localhost:8888
 
 # 认证配置（可选，默认不启用）
 # AUTH_ENABLED=false
