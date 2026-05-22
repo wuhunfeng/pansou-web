@@ -2,7 +2,8 @@ import axios from 'axios';
 import type { SearchResponse, LinkCheckItem, LinkCheckResponse } from '@/types';
 
 const api = axios.create({
-  baseURL: '/api',
+  // 如果是生产环境，指向后端域名，否则保持 /api 以供开发环境代理
+  baseURL: import.meta.env.PROD ? 'https://yun.tag.cn.mt/api' : '/api',
   timeout: 10000
 });
 
