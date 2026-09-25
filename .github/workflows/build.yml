@@ -1,50 +1,67 @@
-name: build-single-binary
+name: build-linux-amd64
 
 on:
   push:
-    tags: ["v*"]
+    tags:
+      - "v*"
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        goos: [linux, windows, darwin]
-        goarch: [amd64, arm64]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Build frontend
-        run: |
-          cd web
-          npm install
-          npm run build
-          cd ..
-          mkdir -p internal/ui/dist
-          cp -r web/dist/* internal/ui/dist/
-
-      - name: Setup Go
+      - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: "1.22"
+          cache: true
 
-      - name: Build binary
+      - name: Build static binary
         env:
           CGO_ENABLED: "0"
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
+          GOOS: linux
+          GOARCH: amd64
         run: |
-          OUT=pansou-web-${GOOS}-${GOARCH}
-          go build -trimpath -ldflags "-s -w" -o "$OUT" .
-          if [ "$GOOS" = windows ]; then mv "$OUT" "${OUT}.exe"; fi
+          VERSION="${GITHUB_REF_NAME:-dev}"
+          COMMIT="${GITHUB_SHA::7}"
 
-      - uses: actions/upload-artifact@v4
+          go build -trimpath \
+            -ldflags "-s -w \
+              -X main.Version=${VERSION} \
+              -X main.Commit=${COMMIT}" \
+            -o pansou-web .
+
+          file pansou-web
+          ldd pansou-web || true
+
+      - name: Prepare deploy package
+        run: |
+          mkdir -p dist
+          cp pansou-web dist/pansou-web
+          cp README.md dist/README.md 2>/dev/null || true
+          cp -r embeddata dist/embeddata 2>/dev/null || true
+          cat > dist/.env.example <<'EOF'
+          # pansou-web 环境变量
+          PORT=8080
+          DOMAIN=your.alwaysdata.net
+          ENABLED_PLUGINS=labi,zhizhen,shandian,duoduo,muou,wanou
+          CHANNELS=
+          PROXY=
+          AUTH_ENABLED=false
+          AUTH_USERS=admin:admin123
+          EOF
+
+          cd dist
+          tar -czf ../pansou-web-linux-amd64.tar.gz .
+          cd ..
+
+      - name: Upload to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
         with:
-          name: pansou-web-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: pansou-web-*
+          files: pansou-web-linux-amd64.tar.gz
