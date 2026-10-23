@@ -1,0 +1,82 @@
+name: Build Botkeep Release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: botkeep-release
+  cancel-in-progress: true
+
+env:
+  # ⚠️ 改成你打过补丁的 pansou fork
+  BACKEND_REPO: YOUR_USERNAME/pansou
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: 检出前端（本仓库）
+        uses: actions/checkout@v4
+
+      - name: 检出后端 fork
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.BACKEND_REPO }}
+          path: backend
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: 设置 Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache-dependency-path: backend/go.sum
+
+      - name: 构建前端
+        run: |
+          npm ci
+          npm run build
+
+      - name: 合并前端产物到后端 web 目录
+        run: |
+          rm -rf backend/web
+          cp -r dist backend/web
+          ls -la backend/web
+
+      - name: 编译后端（静态链接，amd64 + arm64）
+        working-directory: backend
+        run: |
+          go mod download
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o pansou .
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o pansou-arm64 .
+          chmod +x pansou pansou-arm64
+
+      - name: 打包 Botkeep 部署包
+        run: |
+          mkdir -p out
+          cp backend/pansou out/
+          cp -r backend/web out/web
+          cd out && zip -qr ../pansou-botkeep.zip . && cd ..
+          cp backend/pansou pansou-linux-amd64
+          cp backend/pansou-arm64 pansou-linux-arm64
+          ls -lh pansou-botkeep.zip
+
+      - name: 发布 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'botkeep-latest' }}
+          name: ${{ github.ref_type == 'tag' && format('Botkeep {0}', github.ref_name) || format('Botkeep dev ({0})', github.sha) }}
+          prerelease: ${{ github.ref_type != 'tag' }}
+          files: |
+            pansou-botkeep.zip
+            pansou-linux-amd64
+            pansou-linux-arm64
