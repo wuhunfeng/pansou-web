@@ -1,15 +1,42 @@
 name: Build Frontend
-on: [push, workflow_dispatch]
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Node.js 环境
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: npm install && npm run build
-      - uses: actions/upload-artifact@v4
+          cache: 'npm'
+
+      - name: 安装依赖
+        run: npm install
+
+      - name: 构建项目
+        run: npm run build
+
+      - name: 检查构建产物是否存在
+        run: |
+          if [ -d "dist" ]; then
+            echo "dist 目录构建成功"
+          else
+            echo "错误: dist 目录不存在，请检查打包输出目录"
+            exit 1
+          fi
+
+      - name: 上传构建产物 (Artifact)
+        uses: actions/upload-artifact@v4
         with:
-          name: dist
+          name: pansou-web-dist
           path: dist/
+          retention-days: 7
