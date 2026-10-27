@@ -24,6 +24,10 @@ jobs:
 
       - name: 构建项目
         run: npm run build
+        # 注：如果使用 .env.production 文件，此处无需额外加 env；
+        # 如果想直接在此处硬编码注入，也可以写在下面：
+        # env:
+        #   VITE_API_BASE_URL: https://您的后端代理域名.alwaysdata.net
 
       - name: 检查构建产物是否存在
         run: |
